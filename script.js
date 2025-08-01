@@ -6,14 +6,12 @@ let timeLeft = 60;
 let gameActive = true;
 let isDrawing = false;
 let timerInterval = null;
-let currentScore = 0;
 
 // Canvas and drawing variables
 let canvas = null;
 let ctx = null;
-let currentColor = '#000000';
+let currentColor = '#000000'; // Initial color is black
 let currentBrushSize = 5;
-let isEraserMode = false;
 let drawnStrokes = [];
 
 // Audio elements
@@ -121,7 +119,7 @@ function setupDrawingContext() {
     ctx.lineWidth = currentBrushSize;
     ctx.strokeStyle = currentColor;
     
-    // Make drawing invisible initially
+    // Make drawing invisible initially by setting globalAlpha to 0
     ctx.globalAlpha = 0;
     
     // Clear canvas with white background
@@ -168,9 +166,8 @@ function setupEventListeners() {
         brush.addEventListener('click', selectBrushSize);
     });
     
-    // Tool buttons
+    // Tool buttons (clear canvas is the only one left)
     document.getElementById('clear-canvas').addEventListener('click', clearCanvas);
-    document.getElementById('eraser-tool').addEventListener('click', toggleEraser);
     
     // Game controls
     document.getElementById('reveal-btn').addEventListener('click', revealDrawing);
@@ -197,7 +194,7 @@ function startDrawing(e) {
         type: 'start',
         x: x,
         y: y,
-        color: isEraserMode ? '#ffffff' : currentColor,
+        color: currentColor,
         size: currentBrushSize
     });
 }
@@ -210,7 +207,7 @@ function draw(e) {
     const y = (e.clientY - rect.top) * (canvas.height / rect.height);
     
     ctx.lineWidth = currentBrushSize;
-    ctx.strokeStyle = isEraserMode ? '#ffffff' : currentColor;
+    ctx.strokeStyle = currentColor;
     ctx.lineTo(x, y);
     ctx.stroke();
     
@@ -219,7 +216,7 @@ function draw(e) {
         type: 'draw',
         x: x,
         y: y,
-        color: isEraserMode ? '#ffffff' : currentColor,
+        color: currentColor,
         size: currentBrushSize
     });
 }
@@ -256,10 +253,7 @@ function selectColor(e) {
     
     // Update current color
     currentColor = e.target.dataset.color;
-    isEraserMode = false;
-    
-    // Update eraser button
-    document.getElementById('eraser-tool').classList.remove('active');
+    ctx.strokeStyle = currentColor;
 }
 
 function selectBrushSize(e) {
@@ -273,6 +267,7 @@ function selectBrushSize(e) {
     
     // Update current brush size
     currentBrushSize = parseInt(e.target.dataset.size);
+    ctx.lineWidth = currentBrushSize;
 }
 
 function clearCanvas() {
@@ -283,22 +278,6 @@ function clearCanvas() {
     setupDrawingContext();
 }
 
-function toggleEraser() {
-    const eraserBtn = document.getElementById('eraser-tool');
-    isEraserMode = !isEraserMode;
-    
-    if (isEraserMode) {
-        eraserBtn.classList.add('active');
-        // Remove active from color options
-        document.querySelectorAll('.color-option').forEach(option => {
-            option.classList.remove('active');
-        });
-    } else {
-        eraserBtn.classList.remove('active');
-        // Restore color selection
-        document.querySelector(`[data-color="${currentColor}"]`).classList.add('active');
-    }
-}
 
 // ===== TIMER FUNCTIONS =====
 function startTimer() {
@@ -350,26 +329,133 @@ function enableAudio() {
     }
 }
 
-// ===== REVEAL AND SCORING =====
-function revealDrawing() {
+// ===== AI INTEGRATION FUNCTIONS =====
+/**
+ * Asynchronously checks the user's drawing against the reference image using the Gemini API.
+ * @returns {Promise<{score: number, quote: string}>} A promise that resolves with the match score and a funny quote.
+ */
+async function checkMatchWithAI() {
+    // 1. Get the reference image data from the prompt image
+    const promptImage = document.getElementById('prompt-image');
+    if (!promptImage.src) {
+        throw new Error('Reference image not loaded.');
+    }
+    const promptData = await fetch(promptImage.src).then(res => res.blob());
+    const promptBase64 = await new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result.split(',')[1]);
+        reader.readAsDataURL(promptData);
+    });
+
+    // 2. Get the user's drawing from the canvas
+    const drawnImageBase64 = canvas.toDataURL('image/png').split(',')[1];
+    
+    // 3. Define the prompt for the AI
+    const promptText = "Compare the user's drawing with the reference image. Your response MUST be a JSON object with two fields: 'score', which is an integer from 0 to 100 representing the likeness, and 'funnyQuote', which is a single funny quote about art. Make sure your JSON is well-formed.";
+
+    // 4. Construct the API request payload
+    let chatHistory = [];
+    const payload = {
+        contents: [
+            {
+                role: "user",
+                parts: [
+                    { text: promptText },
+                    { inlineData: { mimeType: "image/png", data: promptBase64 } },
+                    { inlineData: { mimeType: "image/png", data: drawnImageBase64 } }
+                ]
+            }
+        ],
+        generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: "OBJECT",
+                properties: {
+                    "score": { "type": "NUMBER" },
+                    "funnyQuote": { "type": "STRING" }
+                }
+            }
+        }
+    };
+    
+    // 5. Make the API call to Gemini
+    const apiKey = "";
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+    
+    let result = null;
+    let attempts = 0;
+    const maxAttempts = 5;
+
+    while (attempts < maxAttempts) {
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            
+            const apiResult = await response.json();
+            const jsonString = apiResult.candidates[0].content.parts[0].text;
+            result = JSON.parse(jsonString);
+            break;
+        } catch (e) {
+            attempts++;
+            if (attempts < maxAttempts) {
+                const delay = Math.pow(2, attempts) * 1000; // Exponential backoff
+                console.error(`Attempt ${attempts} failed. Retrying in ${delay / 1000}s...`, e);
+                await new Promise(res => setTimeout(res, delay));
+            } else {
+                console.error("Failed to call Gemini API after multiple attempts.", e);
+                throw e;
+            }
+        }
+    }
+    
+    if (result) {
+        return {
+            score: result.score,
+            quote: result.funnyQuote
+        };
+    } else {
+        throw new Error('API call failed or returned an invalid response.');
+    }
+}
+
+// ===== REVEAL AND AI FEEDBACK =====
+async function revealDrawing() {
     if (!gameActive) return;
     
     gameActive = false;
     clearInterval(timerInterval);
     
-    // Hide canvas overlay to show drawing
-    const overlay = document.getElementById('canvas-overlay');
-    if (overlay) {
-        overlay.classList.add('hidden');
-    }
-    
-    // Make drawing visible
+    // Make drawing visible by redrawing with full opacity
     redrawVisible();
     
-    // Calculate and show match result
-    setTimeout(() => {
-        showMatchResult();
-    }, 500);
+    // Show a loading message while waiting for the AI
+    const resultElement = document.getElementById('match-result');
+    document.getElementById('match-feedback').textContent = "AI is analyzing your masterpiece...";
+    document.getElementById('match-score').textContent = "..."
+    document.getElementById('points-earned').textContent = "..."
+    resultElement.classList.remove('hidden');
+
+    try {
+        // Call the AI to check the match and get feedback
+        const aiResult = await checkMatchWithAI();
+        
+        // Update the UI with the AI's response
+        document.getElementById('match-score').textContent = Math.round(aiResult.score);
+        document.getElementById('match-feedback').textContent = aiResult.quote;
+        
+        // Calculate and display points based on the AI score
+        const pointsEarned = calculatePoints(aiResult.score);
+        document.getElementById('points-earned').textContent = pointsEarned;
+
+    } catch (error) {
+        console.error("Error with AI analysis:", error);
+        document.getElementById('match-feedback').textContent = "AI is on a coffee break. Try again!";
+        document.getElementById('match-score').textContent = "N/A";
+        document.getElementById('points-earned').textContent = "0";
+    }
     
     // Disable reveal button
     document.getElementById('reveal-btn').disabled = true;
@@ -400,65 +486,9 @@ function redrawVisible() {
     });
 }
 
-function showMatchResult() {
-    const matchScore = generateMatchScore();
-    const feedback = generateMatchFeedback(matchScore);
-    const pointsEarned = calculatePoints(matchScore);
-    
-    // Update score
-    currentScore += pointsEarned;
-    document.getElementById('score').textContent = currentScore;
-    
-    // Show result
-    const resultElement = document.getElementById('match-result');
-    document.getElementById('match-score').textContent = matchScore;
-    document.getElementById('match-feedback').textContent = feedback;
-    document.getElementById('points-earned').textContent = pointsEarned;
-    
-    resultElement.classList.remove('hidden');
-}
-
-function generateMatchScore() {
-    let min, max;
-    
-    switch (difficulty) {
-        case 'easy':
-            min = 50;
-            max = 100;
-            break;
-        case 'medium':
-            min = 30;
-            max = 90;
-            break;
-        case 'hard':
-            min = 10;
-            max = 80;
-            break;
-        default:
-            min = 50;
-            max = 100;
-    }
-    
-    return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-function generateMatchFeedback(score) {
-    if (score >= 90) {
-        return "Incredible accuracy! You're basically AI.";
-    } else if (score >= 70) {
-        return "Well done! That's surprisingly close.";
-    } else if (score >= 50) {
-        return "Not bad, but you may want to try again.";
-    } else {
-        return "Art is subjective, right?";
-    }
-}
-
 function calculatePoints(matchScore) {
-    // Base points from match score
     let points = matchScore;
     
-    // Bonus points based on difficulty
     switch (difficulty) {
         case 'easy':
             points *= 1;
@@ -471,7 +501,6 @@ function calculatePoints(matchScore) {
             break;
     }
     
-    // Time bonus (if time remaining)
     if (timeLeft > 0) {
         points += timeLeft * 2;
     }
