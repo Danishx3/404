@@ -379,7 +379,8 @@ async function checkMatchWithAI() {
     };
     
     // 5. Make the API call to Gemini
-    const apiKey = "";
+    // IMPORTANT: This API key is provided by the user. Do not share or reuse it.
+    const apiKey = "AIzaSyBQ8fr6BiS-tBTfLyCSU8bwuKvifd5VVHw";
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
     
     let result = null;
@@ -394,7 +395,14 @@ async function checkMatchWithAI() {
                 body: JSON.stringify(payload)
             });
             
+            // Log the full response to the console to help with debugging
             const apiResult = await response.json();
+            console.log("Full API Response:", apiResult);
+
+            if (!apiResult.candidates || apiResult.candidates.length === 0 || !apiResult.candidates[0].content || !apiResult.candidates[0].content.parts || apiResult.candidates[0].content.parts.length === 0) {
+                throw new Error("Invalid API response format.");
+            }
+            
             const jsonString = apiResult.candidates[0].content.parts[0].text;
             result = JSON.parse(jsonString);
             break;
