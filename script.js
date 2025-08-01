@@ -1,656 +1,495 @@
-/**
- * Invisible Art Challenge - Main Game Logic
- * A drawing game where players draw without seeing their strokes
- */
+// ===== INVISIBLE ART CHALLENGE - GAME SCRIPT =====
 
-class InvisibleArtGame {
-    constructor() {
-        this.canvas = null;
-        this.ctx = null;
-        this.isDrawing = false;
-        this.currentColor = '#000000';
-        this.strokeSize = 5;
-        this.timer = null;
-        this.timeLeft = 0;
-        this.isRevealed = false;
-        this.drawingData = [];
-        this.backgroundMusic = null;
-        this.sounds = {
-            ding: null,
-            reveal: null
-        };
-        
-        // Initialize the game when DOM is loaded
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => this.init());
-        } else {
-            this.init();
-        }
+// Game state variables
+let difficulty = 'easy';
+let timeLeft = 60;
+let gameActive = true;
+let isDrawing = false;
+let timerInterval = null;
+let currentScore = 0;
+
+// Canvas and drawing variables
+let canvas = null;
+let ctx = null;
+let currentColor = '#000000';
+let currentBrushSize = 5;
+let isEraserMode = false;
+let drawnStrokes = [];
+
+// Audio elements
+let bgMusic = null;
+let dingSound = null;
+
+// ===== INITIALIZATION =====
+document.addEventListener('DOMContentLoaded', function() {
+    initializeGame();
+});
+
+function initializeGame() {
+    // Parse difficulty from URL
+    parseDifficultyFromURL();
+    
+    // Initialize DOM elements
+    initializeElements();
+    
+    // Load random prompt image
+    loadRandomPrompt();
+    
+    // Initialize canvas
+    initializeCanvas();
+    
+    // Initialize audio
+    initializeAudio();
+    
+    // Set up event listeners
+    setupEventListeners();
+    
+    // Start timer
+    startTimer();
+}
+
+// ===== URL PARSING =====
+function parseDifficultyFromURL() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const levelParam = urlParams.get('level');
+    
+    if (levelParam && ['easy', 'medium', 'hard'].includes(levelParam)) {
+        difficulty = levelParam;
     }
-
-    /**
-     * Initialize the game
-     */
-    init() {
-        this.setupCanvas();
-        this.setupTimer();
-        this.setupColorPalette();
-        this.setupStrokeSize();
-        this.setupControls();
-        this.setupAudio();
-        this.setupDifficultyBackground();
-        this.startBackgroundMusic();
-    }
-
-    /**
-     * Setup canvas for invisible drawing
-     */
-    setupCanvas() {
-        this.canvas = document.getElementById('drawing-canvas');
-        if (!this.canvas) return;
-
-        this.ctx = this.canvas.getContext('2d');
-        
-        // Set canvas size (default 400x400, will be adjusted if reference image exists)
-        this.canvas.width = 400;
-        this.canvas.height = 400;
-        
-        // Setup drawing properties
-        this.ctx.lineCap = 'round';
-        this.ctx.lineJoin = 'round';
-        this.ctx.lineWidth = this.strokeSize;
-        
-        // Add event listeners for drawing
-        this.addCanvasEventListeners();
-        
-        // Apply pencil cursor
-        this.canvas.style.cursor = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>') 12 12, crosshair`;
-    }
-
-    /**
-     * Add event listeners for canvas drawing
-     */
-    addCanvasEventListeners() {
-        // Mouse events
-        this.canvas.addEventListener('mousedown', (e) => this.startDrawing(e));
-        this.canvas.addEventListener('mousemove', (e) => this.draw(e));
-        this.canvas.addEventListener('mouseup', () => this.stopDrawing());
-        this.canvas.addEventListener('mouseout', () => this.stopDrawing());
-
-        // Touch events for mobile
-        this.canvas.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            const touch = e.touches[0];
-            const mouseEvent = new MouseEvent('mousedown', {
-                clientX: touch.clientX,
-                clientY: touch.clientY
-            });
-            this.canvas.dispatchEvent(mouseEvent);
-        });
-
-        this.canvas.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            const touch = e.touches[0];
-            const mouseEvent = new MouseEvent('mousemove', {
-                clientX: touch.clientX,
-                clientY: touch.clientY
-            });
-            this.canvas.dispatchEvent(mouseEvent);
-        });
-
-        this.canvas.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            const mouseEvent = new MouseEvent('mouseup', {});
-            this.canvas.dispatchEvent(mouseEvent);
-        });
-    }
-
-    /**
-     * Get mouse/touch position relative to canvas
-     */
-    getEventPosition(e) {
-        const rect = this.canvas.getBoundingClientRect();
-        const scaleX = this.canvas.width / rect.width;
-        const scaleY = this.canvas.height / rect.height;
-        
-        return {
-            x: (e.clientX - rect.left) * scaleX,
-            y: (e.clientY - rect.top) * scaleY
-        };
-    }
-
-    /**
-     * Start drawing
-     */
-    startDrawing(e) {
-        if (this.isRevealed) return;
-        
-        this.isDrawing = true;
-        const pos = this.getEventPosition(e);
-        
-        // Start new path for invisible drawing
-        this.ctx.beginPath();
-        this.ctx.moveTo(pos.x, pos.y);
-        
-        // Store drawing data for later reveal
-        this.drawingData.push({
-            type: 'start',
-            x: pos.x,
-            y: pos.y,
-            color: this.currentColor,
-            size: this.strokeSize
-        });
-    }
-
-    /**
-     * Draw on canvas (invisible)
-     */
-    draw(e) {
-        if (!this.isDrawing || this.isRevealed) return;
-        
-        const pos = this.getEventPosition(e);
-        
-        // Draw invisible line (fully transparent)
-        this.ctx.globalAlpha = 0;
-        this.ctx.strokeStyle = this.currentColor;
-        this.ctx.lineWidth = this.strokeSize;
-        this.ctx.lineTo(pos.x, pos.y);
-        this.ctx.stroke();
-        this.ctx.beginPath();
-        this.ctx.moveTo(pos.x, pos.y);
-        
-        // Store drawing data
-        this.drawingData.push({
-            type: 'draw',
-            x: pos.x,
-            y: pos.y,
-            color: this.currentColor,
-            size: this.strokeSize
-        });
-    }
-
-    /**
-     * Stop drawing
-     */
-    stopDrawing() {
-        if (!this.isDrawing) return;
-        
-        this.isDrawing = false;
-        this.drawingData.push({ type: 'end' });
-    }
-
-    /**
-     * Setup timer based on difficulty
-     */
-    setupTimer() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const difficulty = urlParams.get('difficulty') || 'medium';
-        
-        // Set timer based on difficulty
-        const timeMap = {
-            'easy': 20,
-            'medium': 30,
-            'hard': 45
-        };
-        
-        this.timeLeft = timeMap[difficulty] || 30;
-        this.updateTimerDisplay();
-        
-        // Start countdown
-        this.timer = setInterval(() => {
-            this.timeLeft--;
-            this.updateTimerDisplay();
-            
-            // Play ding sound in last 3 seconds
-            if (this.timeLeft <= 3 && this.timeLeft > 0) {
-                this.playDingSound();
-            }
-            
-            // Auto-reveal when time runs out
-            if (this.timeLeft <= 0) {
-                clearInterval(this.timer);
-                this.revealDrawing();
-            }
-        }, 1000);
-    }
-
-    /**
-     * Update timer display
-     */
-    updateTimerDisplay() {
-        const timerElement = document.getElementById('timer');
-        if (!timerElement) return;
-        
-        const minutes = Math.floor(this.timeLeft / 60);
-        const seconds = this.timeLeft % 60;
-        timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        
-        // Add warning class for last 10 seconds
-        if (this.timeLeft <= 10) {
-            timerElement.classList.add('warning');
-        }
-    }
-
-    /**
-     * Setup color palette
-     */
-    setupColorPalette() {
-        const colorButtons = document.querySelectorAll('.color-btns');
-        const customColorPicker = document.getElementById('custom-color-picker');
-        
-        // Handle preset color buttons
-        colorButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                // Remove active class from all buttons
-                colorButtons.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                
-                // Update current color
-                this.currentColor = btn.dataset.color || btn.style.backgroundColor;
-            });
-        });
-        
-        // Handle custom color picker
-        if (customColorPicker) {
-            customColorPicker.addEventListener('change', (e) => {
-                // Remove active class from preset buttons
-                colorButtons.forEach(b => b.classList.remove('active'));
-                
-                // Update current color
-                this.currentColor = e.target.value;
-                
-                // Visual feedback
-                customColorPicker.style.background = e.target.value;
-                customColorPicker.classList.add('active');
-            });
-        }
-    }
-
-    /**
-     * Setup stroke size slider
-     */
-    setupStrokeSize() {
-        const strokeSlider = document.getElementById('stroke-size');
-        const strokeValue = document.getElementById('stroke-value');
-        
-        if (!strokeSlider) return;
-        
-        strokeSlider.addEventListener('input', (e) => {
-            this.strokeSize = parseInt(e.target.value);
-            if (strokeValue) {
-                strokeValue.textContent = this.strokeSize;
-            }
-        });
-        
-        // Initialize display
-        if (strokeValue) {
-            strokeValue.textContent = this.strokeSize;
-        }
-    }
-
-    /**
-     * Setup control buttons
-     */
-    setupControls() {
-        // Reveal button
-        const revealBtn = document.getElementById('reveal-btn');
-        if (revealBtn) {
-            revealBtn.addEventListener('click', () => this.revealDrawing());
-        }
-        
-        // Restart button
-        const restartBtn = document.getElementById('restart-btn');
-        if (restartBtn) {
-            restartBtn.addEventListener('click', () => this.restart());
-        }
-    }
-
-    /**
-     * Setup audio elements
-     */
-    setupAudio() {
-        try {
-            // Create audio elements programmatically
-            this.sounds.ding = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTcIF2W-7OydDAcpgc7y2ogDNHY');
-            this.sounds.reveal = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTcIF2W-7OydDAcpgc7y2og');
-            
-            // Background music (simple tone)
-            this.backgroundMusic = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTcIF2W-7OydDAcpgc7y2og');
-            
-            // Set audio properties
-            if (this.backgroundMusic) {
-                this.backgroundMusic.loop = true;
-                this.backgroundMusic.volume = 0.1;
-            }
-            
-            Object.values(this.sounds).forEach(sound => {
-                if (sound) {
-                    sound.volume = 0.3;
-                }
-            });
-        } catch (error) {
-            console.warn('Audio setup failed:', error);
-        }
-    }
-
-    /**
-     * Play ding sound
-     */
-    playDingSound() {
-        try {
-            if (this.sounds.ding) {
-                this.sounds.ding.currentTime = 0;
-                this.sounds.ding.play().catch(e => console.warn('Ding sound failed:', e));
-            }
-        } catch (error) {
-            console.warn('Failed to play ding sound:', error);
-        }
-    }
-
-    /**
-     * Start background music
-     */
-    startBackgroundMusic() {
-        try {
-            if (this.backgroundMusic) {
-                this.backgroundMusic.play().catch(e => console.warn('Background music failed:', e));
-            }
-        } catch (error) {
-            console.warn('Failed to start background music:', error);
-        }
-    }
-
-    /**
-     * Setup difficulty-based background
-     */
-    setupDifficultyBackground() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const difficulty = urlParams.get('difficulty') || 'medium';
-        
-        document.body.classList.add(`difficulty-${difficulty}`);
-    }
-
-    /**
-     * Reveal the invisible drawing
-     */
-    revealDrawing() {
-        if (this.isRevealed) return;
-        
-        this.isRevealed = true;
-        
-        // Stop timer
-        if (this.timer) {
-            clearInterval(this.timer);
-        }
-        
-        // Clear canvas and redraw with visible strokes
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.globalAlpha = 1;
-        this.ctx.lineCap = 'round';
-        this.ctx.lineJoin = 'round';
-        
-        // Redraw all stored paths
-        let currentPath = null;
-        
-        this.drawingData.forEach(data => {
-            switch (data.type) {
-                case 'start':
-                    this.ctx.beginPath();
-                    this.ctx.moveTo(data.x, data.y);
-                    this.ctx.strokeStyle = data.color;
-                    this.ctx.lineWidth = data.size;
-                    currentPath = { color: data.color, size: data.size };
-                    break;
-                    
-                case 'draw':
-                    if (currentPath) {
-                        this.ctx.lineTo(data.x, data.y);
-                    }
-                    break;
-                    
-                case 'end':
-                    if (currentPath) {
-                        this.ctx.stroke();
-                        currentPath = null;
-                    }
-                    break;
-            }
-        });
-        
-        // Update reveal button
-        const revealBtn = document.getElementById('reveal-btn');
-        if (revealBtn) {
-            revealBtn.textContent = '✨ Drawing Revealed!';
-            revealBtn.disabled = true;
-            revealBtn.style.opacity = '0.7';
-        }
-        
-        // Show reference image
-        this.showReferenceImage();
-        
-        // Play reveal sound
-        try {
-            if (this.sounds.reveal) {
-                this.sounds.reveal.play().catch(e => console.warn('Reveal sound failed:', e));
-            }
-        } catch (error) {
-            console.warn('Failed to play reveal sound:', error);
-        }
-        
-        // Stop background music
-        if (this.backgroundMusic) {
-            this.backgroundMusic.pause();
-        }
-        
-        // Disable canvas drawing
-        this.canvas.style.cursor = 'default';
-        this.canvas.style.pointerEvents = 'none';
-    }
-
-    /**
-     * Show reference image with animation
-     */
-    showReferenceImage() {
-        const referenceImg = document.getElementById('reference-img');
-        const hiddenMessage = document.querySelector('.hidden-message');
-        
-        if (referenceImg && hiddenMessage) {
-            // Hide the hidden message
-            hiddenMessage.style.display = 'none';
-            
-            // Show and animate the reference image
-            referenceImg.style.display = 'block';
-            referenceImg.classList.add('show-ref', 'reveal-animation');
-            
-            // Set a default image if none is set
-            if (!referenceImg.src || referenceImg.src.includes('blob:')) {
-                referenceImg.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+CiAgPHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5YTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPvCfhK4gUmVmZXJlbmNlIEltYWdlPC90ZXh0Pgo8L3N2Zz4K';
-            }
-            
-            // Adjust canvas size to match image when it loads
-            referenceImg.onload = () => {
-                this.matchCanvasToImage(referenceImg);
-            };
-        }
-    }
-
-    /**
-     * Match canvas size to reference image
-     */
-    matchCanvasToImage(img) {
-        const maxWidth = 400;
-        const maxHeight = 400;
-        
-        let { width, height } = img;
-        
-        // Scale down if image is too large
-        if (width > maxWidth || height > maxHeight) {
-            const aspectRatio = width / height;
-            
-            if (width > height) {
-                width = maxWidth;
-                height = maxWidth / aspectRatio;
-            } else {
-                height = maxHeight;
-                width = maxHeight * aspectRatio;
-            }
-        }
-        
-        // Update canvas size
-        this.canvas.width = width;
-        this.canvas.height = height;
-        this.canvas.style.width = width + 'px';
-        this.canvas.style.height = height + 'px';
-        
-        // Redraw after resize
-        if (this.isRevealed) {
-            this.redrawCanvas();
-        }
-    }
-
-    /**
-     * Redraw canvas after resize
-     */
-    redrawCanvas() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.globalAlpha = 1;
-        this.ctx.lineCap = 'round';
-        this.ctx.lineJoin = 'round';
-        
-        let currentPath = null;
-        
-        this.drawingData.forEach(data => {
-            switch (data.type) {
-                case 'start':
-                    this.ctx.beginPath();
-                    this.ctx.moveTo(data.x, data.y);
-                    this.ctx.strokeStyle = data.color;
-                    this.ctx.lineWidth = data.size;
-                    currentPath = { color: data.color, size: data.size };
-                    break;
-                    
-                case 'draw':
-                    if (currentPath) {
-                        this.ctx.lineTo(data.x, data.y);
-                    }
-                    break;
-                    
-                case 'end':
-                    if (currentPath) {
-                        this.ctx.stroke();
-                        currentPath = null;
-                    }
-                    break;
-            }
-        });
-    }
-
-    /**
-     * Restart the game
-     */
-    restart() {
-        // Clean up
-        if (this.timer) {
-            clearInterval(this.timer);
-        }
-        
-        if (this.backgroundMusic) {
-            this.backgroundMusic.pause();
-            this.backgroundMusic.currentTime = 0;
-        }
-        
-        // Redirect to index
-        window.location.href = 'index.html';
-    }
-
-    /**
-     * Handle page visibility changes (pause/resume timer)
-     */
-    handleVisibilityChange() {
-        if (document.hidden) {
-            if (this.timer) {
-                clearInterval(this.timer);
-            }
-            if (this.backgroundMusic) {
-                this.backgroundMusic.pause();
-            }
-        } else {
-            if (!this.isRevealed && this.timeLeft > 0) {
-                this.setupTimer();
-                this.startBackgroundMusic();
-            }
-        }
+    
+    // Set time based on difficulty
+    switch(difficulty) {
+        case 'easy':
+            timeLeft = 60;
+            break;
+        case 'medium':
+            timeLeft = 45;
+            break;
+        case 'hard':
+            timeLeft = 30;
+            break;
     }
 }
 
-// Additional utility functions
-const GameUtils = {
-    /**
-     * Get URL parameters
-     */
-    getUrlParams() {
-        return new URLSearchParams(window.location.search);
-    },
-
-    /**
-     * Format time for display
-     */
-    formatTime(seconds) {
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    },
-
-    /**
-     * Create audio context for better browser compatibility
-     */
-    createAudioContext() {
-        try {
-            window.AudioContext = window.AudioContext || window.webkitAudioContext;
-            return new AudioContext();
-        } catch (error) {
-            console.warn('Web Audio API not supported:', error);
-            return null;
-        }
-    },
-
-    /**
-     * Handle full screen for better mobile experience
-     */
-    requestFullscreen(element) {
-        if (element.requestFullscreen) {
-            element.requestFullscreen();
-        } else if (element.webkitRequestFullscreen) {
-            element.webkitRequestFullscreen();
-        } else if (element.msRequestFullscreen) {
-            element.msRequestFullscreen();
-        }
-    }
-};
-
-// Initialize the game
-const game = new InvisibleArtGame();
-
-// Handle page visibility changes
-document.addEventListener('visibilitychange', () => {
-    if (game) {
-        game.handleVisibilityChange();
-    }
-});
-
-// Handle page unload cleanup
-window.addEventListener('beforeunload', () => {
-    if (game) {
-        if (game.timer) {
-            clearInterval(game.timer);
-        }
-        if (game.backgroundMusic) {
-            game.backgroundMusic.pause();
-        }
-    }
-});
-
-// Export for potential module use
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { InvisibleArtGame, GameUtils };
+// ===== DOM ELEMENT INITIALIZATION =====
+function initializeElements() {
+    canvas = document.getElementById('drawing-canvas');
+    ctx = canvas.getContext('2d');
+    bgMusic = document.getElementById('bg-music');
+    dingSound = document.getElementById('ding-sound');
 }
+
+// ===== PROMPT IMAGE LOADING =====
+function loadRandomPrompt() {
+    // Generate random prompt number (1-3 for each difficulty)
+    const promptNumber = Math.floor(Math.random() * 3) + 1;
+    const imagePath = `assets/prompts/${difficulty}/prompt${promptNumber}-${difficulty}.png`;
+    
+    const promptImage = document.getElementById('prompt-image');
+    promptImage.src = imagePath;
+    
+    // Set canvas size when image loads
+    promptImage.onload = function() {
+        canvas.width = this.naturalWidth || 400;
+        canvas.height = this.naturalHeight || 400;
+        
+        // Set canvas display size to match container
+        canvas.style.width = '100%';
+        canvas.style.height = '350px';
+        
+        // Initialize drawing context
+        setupDrawingContext();
+    };
+    
+    // Fallback if image doesn't load
+    promptImage.onerror = function() {
+        canvas.width = 400;
+        canvas.height = 350;
+        setupDrawingContext();
+    };
+}
+
+// ===== CANVAS INITIALIZATION =====
+function initializeCanvas() {
+    // Canvas will be sized when prompt image loads
+    setupDrawingContext();
+}
+
+function setupDrawingContext() {
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = currentBrushSize;
+    ctx.strokeStyle = currentColor;
+    
+    // Make drawing invisible initially
+    ctx.globalAlpha = 0;
+    
+    // Clear canvas with white background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+// ===== AUDIO INITIALIZATION =====
+function initializeAudio() {
+    if (bgMusic) {
+        bgMusic.volume = 0.3;
+        bgMusic.play().catch(e => {
+            console.log('Autoplay prevented, user interaction required');
+        });
+    }
+    
+    if (dingSound) {
+        dingSound.volume = 0.5;
+    }
+}
+
+// ===== EVENT LISTENERS =====
+function setupEventListeners() {
+    // Drawing events
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDrawing);
+    canvas.addEventListener('mouseout', stopDrawing);
+    
+    // Touch events for mobile
+    canvas.addEventListener('touchstart', handleTouch);
+    canvas.addEventListener('touchmove', handleTouch);
+    canvas.addEventListener('touchend', stopDrawing);
+    
+    // Color palette
+    const colorOptions = document.querySelectorAll('.color-option');
+    colorOptions.forEach(option => {
+        option.addEventListener('click', selectColor);
+    });
+    
+    // Brush sizes
+    const brushSizes = document.querySelectorAll('.brush-size');
+    brushSizes.forEach(brush => {
+        brush.addEventListener('click', selectBrushSize);
+    });
+    
+    // Tool buttons
+    document.getElementById('clear-canvas').addEventListener('click', clearCanvas);
+    document.getElementById('eraser-tool').addEventListener('click', toggleEraser);
+    
+    // Game controls
+    document.getElementById('reveal-btn').addEventListener('click', revealDrawing);
+    document.getElementById('restart-btn').addEventListener('click', restartGame);
+    
+    // Enable audio on first user interaction
+    document.addEventListener('click', enableAudio, { once: true });
+}
+
+// ===== DRAWING FUNCTIONS =====
+function startDrawing(e) {
+    if (!gameActive) return;
+    
+    isDrawing = true;
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+    
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    
+    // Store stroke start
+    drawnStrokes.push({
+        type: 'start',
+        x: x,
+        y: y,
+        color: isEraserMode ? '#ffffff' : currentColor,
+        size: currentBrushSize
+    });
+}
+
+function draw(e) {
+    if (!isDrawing || !gameActive) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+    
+    ctx.lineWidth = currentBrushSize;
+    ctx.strokeStyle = isEraserMode ? '#ffffff' : currentColor;
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    
+    // Store stroke point
+    drawnStrokes.push({
+        type: 'draw',
+        x: x,
+        y: y,
+        color: isEraserMode ? '#ffffff' : currentColor,
+        size: currentBrushSize
+    });
+}
+
+function stopDrawing() {
+    if (!isDrawing) return;
+    isDrawing = false;
+    ctx.beginPath();
+    
+    // Store stroke end
+    drawnStrokes.push({ type: 'end' });
+}
+
+function handleTouch(e) {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const mouseEvent = new MouseEvent(e.type === 'touchstart' ? 'mousedown' : 
+                                     e.type === 'touchmove' ? 'mousemove' : 'mouseup', {
+        clientX: touch.clientX,
+        clientY: touch.clientY
+    });
+    canvas.dispatchEvent(mouseEvent);
+}
+
+// ===== TOOL FUNCTIONS =====
+function selectColor(e) {
+    // Remove active class from all colors
+    document.querySelectorAll('.color-option').forEach(option => {
+        option.classList.remove('active');
+    });
+    
+    // Add active class to selected color
+    e.target.classList.add('active');
+    
+    // Update current color
+    currentColor = e.target.dataset.color;
+    isEraserMode = false;
+    
+    // Update eraser button
+    document.getElementById('eraser-tool').classList.remove('active');
+}
+
+function selectBrushSize(e) {
+    // Remove active class from all brush sizes
+    document.querySelectorAll('.brush-size').forEach(brush => {
+        brush.classList.remove('active');
+    });
+    
+    // Add active class to selected brush
+    e.target.classList.add('active');
+    
+    // Update current brush size
+    currentBrushSize = parseInt(e.target.dataset.size);
+}
+
+function clearCanvas() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    drawnStrokes = [];
+    setupDrawingContext();
+}
+
+function toggleEraser() {
+    const eraserBtn = document.getElementById('eraser-tool');
+    isEraserMode = !isEraserMode;
+    
+    if (isEraserMode) {
+        eraserBtn.classList.add('active');
+        // Remove active from color options
+        document.querySelectorAll('.color-option').forEach(option => {
+            option.classList.remove('active');
+        });
+    } else {
+        eraserBtn.classList.remove('active');
+        // Restore color selection
+        document.querySelector(`[data-color="${currentColor}"]`).classList.add('active');
+    }
+}
+
+// ===== TIMER FUNCTIONS =====
+function startTimer() {
+    updateTimerDisplay();
+    
+    timerInterval = setInterval(() => {
+        timeLeft--;
+        updateTimerDisplay();
+        
+        // Play ding in last 3 seconds
+        if (timeLeft <= 3 && timeLeft > 0) {
+            playDingSound();
+        }
+        
+        // Auto-reveal when time runs out
+        if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            revealDrawing();
+        }
+    }, 1000);
+}
+
+function updateTimerDisplay() {
+    const minutes = Math.floor(timeLeft / 60);
+    const seconds = timeLeft % 60;
+    const timerElement = document.getElementById('timer');
+    
+    timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    
+    // Change color when time is running low
+    if (timeLeft <= 10) {
+        timerElement.style.color = '#e53e3e';
+    } else if (timeLeft <= 30) {
+        timerElement.style.color = '#dd6b20';
+    }
+}
+
+function playDingSound() {
+    if (dingSound) {
+        dingSound.currentTime = 0;
+        dingSound.play().catch(e => console.log('Could not play ding sound'));
+    }
+}
+
+// ===== AUDIO FUNCTIONS =====
+function enableAudio() {
+    if (bgMusic && bgMusic.paused) {
+        bgMusic.play().catch(e => console.log('Could not play background music'));
+    }
+}
+
+// ===== REVEAL AND SCORING =====
+function revealDrawing() {
+    if (!gameActive) return;
+    
+    gameActive = false;
+    clearInterval(timerInterval);
+    
+    // Hide canvas overlay to show drawing
+    const overlay = document.getElementById('canvas-overlay');
+    if (overlay) {
+        overlay.classList.add('hidden');
+    }
+    
+    // Make drawing visible
+    redrawVisible();
+    
+    // Calculate and show match result
+    setTimeout(() => {
+        showMatchResult();
+    }, 500);
+    
+    // Disable reveal button
+    document.getElementById('reveal-btn').disabled = true;
+    document.getElementById('reveal-btn').style.opacity = '0.6';
+}
+
+function redrawVisible() {
+    // Clear canvas and redraw with full opacity
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.globalAlpha = 1;
+    
+    // Redraw all strokes
+    drawnStrokes.forEach(stroke => {
+        if (stroke.type === 'start') {
+            ctx.beginPath();
+            ctx.moveTo(stroke.x, stroke.y);
+            ctx.lineWidth = stroke.size;
+            ctx.strokeStyle = stroke.color;
+        } else if (stroke.type === 'draw') {
+            ctx.lineTo(stroke.x, stroke.y);
+            ctx.stroke();
+        } else if (stroke.type === 'end') {
+            ctx.beginPath();
+        }
+    });
+}
+
+function showMatchResult() {
+    const matchScore = generateMatchScore();
+    const feedback = generateMatchFeedback(matchScore);
+    const pointsEarned = calculatePoints(matchScore);
+    
+    // Update score
+    currentScore += pointsEarned;
+    document.getElementById('score').textContent = currentScore;
+    
+    // Show result
+    const resultElement = document.getElementById('match-result');
+    document.getElementById('match-score').textContent = matchScore;
+    document.getElementById('match-feedback').textContent = feedback;
+    document.getElementById('points-earned').textContent = pointsEarned;
+    
+    resultElement.classList.remove('hidden');
+}
+
+function generateMatchScore() {
+    let min, max;
+    
+    switch (difficulty) {
+        case 'easy':
+            min = 50;
+            max = 100;
+            break;
+        case 'medium':
+            min = 30;
+            max = 90;
+            break;
+        case 'hard':
+            min = 10;
+            max = 80;
+            break;
+        default:
+            min = 50;
+            max = 100;
+    }
+    
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function generateMatchFeedback(score) {
+    if (score >= 90) {
+        return "Incredible accuracy! You're basically AI.";
+    } else if (score >= 70) {
+        return "Well done! That's surprisingly close.";
+    } else if (score >= 50) {
+        return "Not bad, but you may want to try again.";
+    } else {
+        return "Art is subjective, right?";
+    }
+}
+
+function calculatePoints(matchScore) {
+    // Base points from match score
+    let points = matchScore;
+    
+    // Bonus points based on difficulty
+    switch (difficulty) {
+        case 'easy':
+            points *= 1;
+            break;
+        case 'medium':
+            points *= 1.5;
+            break;
+        case 'hard':
+            points *= 2;
+            break;
+    }
+    
+    // Time bonus (if time remaining)
+    if (timeLeft > 0) {
+        points += timeLeft * 2;
+    }
+    
+    return Math.floor(points);
+}
+
+// ===== GAME CONTROL =====
+function restartGame() {
+    window.location.href = 'index.html';
+}
+
+// ===== ERROR HANDLING =====
+window.addEventListener('error', function(e) {
+    console.error('Game error:', e.error);
+});
+
+// Prevent context menu on canvas
+canvas?.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+});

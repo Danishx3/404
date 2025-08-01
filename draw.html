@@ -4,541 +4,113 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Invisible Art Challenge - Draw</title>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Space Grotesk', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            position: relative;
-            overflow-x: hidden;
-        }
-
-        body::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.2) 0%, transparent 50%),
-                        radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
-            animation: float 20s ease-in-out infinite;
-            pointer-events: none;
-        }
-
-        @keyframes float {
-            0%, 100% { transform: translate(0, 0) rotate(0deg); }
-            33% { transform: translate(20px, -20px) rotate(0.5deg); }
-            66% { transform: translate(-15px, 15px) rotate(-0.5deg); }
-        }
-
-        .header {
-            position: sticky;
-            top: 0;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
-            padding: 20px 0;
-            z-index: 100;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-        }
-
-        .header-container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 0 30px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .title {
-            font-size: 1.8rem;
-            font-weight: 700;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        #timer {
-            font-size: 2rem;
-            font-weight: 600;
-            color: #374151;
-            background: rgba(102, 126, 234, 0.1);
-            padding: 12px 24px;
-            border-radius: 16px;
-            border: 2px solid rgba(102, 126, 234, 0.2);
-            min-width: 120px;
-            text-align: center;
-        }
-
-        #restart-btn {
-            background: linear-gradient(135deg, #ef4444, #dc2626);
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 12px;
-            font-family: 'Space Grotesk', sans-serif;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 0.95rem;
-        }
-
-        #restart-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(239, 68, 68, 0.3);
-        }
-
-        .main-container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 40px 30px;
-            position: relative;
-            z-index: 1;
-        }
-
-        .drawing-area {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 40px;
-            margin-bottom: 40px;
-            align-items: start;
-        }
-
-        .canvas-section {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            border-radius: 24px;
-            padding: 30px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-        }
-
-        .section-title {
-            font-size: 1.4rem;
-            font-weight: 600;
-            color: #374151;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-
-        #drawing-canvas {
-            border: 3px solid #e5e7eb;
-            border-radius: 16px;
-            cursor: crosshair;
-            display: block;
-            margin: 0 auto;
-            background: white;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
-        }
-
-        #drawing-canvas:hover {
-            border-color: #667eea;
-            box-shadow: 0 12px 35px rgba(102, 126, 234, 0.15);
-        }
-
-        .reference-section {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            border-radius: 24px;
-            padding: 30px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            text-align: center;
-        }
-
-        #reference-img {
-            border-radius: 16px;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-            max-width: 100%;
-            height: auto;
-            display: none;
-        }
-
-        .hidden-message {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 300px;
-            color: #64748b;
-            font-size: 1.1rem;
-            text-align: center;
-        }
-
-        .hidden-icon {
-            font-size: 4rem;
-            margin-bottom: 20px;
-            opacity: 0.3;
-        }
-
-        .controls {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            border-radius: 24px;
-            padding: 30px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-        }
-
-        .control-group {
-            margin-bottom: 30px;
-        }
-
-        .control-label {
-            display: block;
-            font-weight: 600;
-            color: #374151;
-            margin-bottom: 15px;
-            font-size: 1rem;
-        }
-
-        .color-palette {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 12px;
-            margin-bottom: 20px;
-        }
-
-        .color-btns {
-            width: 50px;
-            height: 50px;
-            border: 3px solid white;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .color-btns:hover {
-            transform: translateY(-3px) scale(1.05);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
-        }
-
-        .color-btns.active {
-            border-color: #374151;
-            transform: translateY(-3px) scale(1.1);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
-        }
-
-        .color-btns::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 0;
-            height: 0;
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            transition: all 0.3s ease;
-        }
-
-        .color-btns:active::after {
-            width: 100%;
-            height: 100%;
-        }
-
-        .custom-color-section {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
-        #custom-color-picker {
-            width: 80px;
-            height: 50px;
-            border: 3px solid white;
-            border-radius: 12px;
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
-            background: linear-gradient(45deg, #ff006e, #ffd60a, #003566, #06ffa5);
-            background-size: 200% 200%;
-            animation: gradientShift 3s ease infinite;
-        }
-
-        @keyframes gradientShift {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-
-        #custom-color-picker:hover {
-            transform: translateY(-3px) scale(1.05);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
-        }
-
-        .stroke-control {
-            margin-bottom: 30px;
-        }
-
-        #stroke-size {
-            width: 100%;
-            height: 8px;
-            border-radius: 4px;
-            background: linear-gradient(to right, #e5e7eb, #667eea);
-            outline: none;
-            -webkit-appearance: none;
-            margin-bottom: 10px;
-        }
-
-        #stroke-size::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-            transition: all 0.3s ease;
-        }
-
-        #stroke-size::-webkit-slider-thumb:hover {
-            transform: scale(1.2);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-        }
-
-        .stroke-preview {
-            text-align: center;
-            color: #64748b;
-            font-size: 0.9rem;
-            font-weight: 500;
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 15px;
-        }
-
-        #reveal-btn {
-            flex: 1;
-            padding: 16px 0;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 16px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            font-family: 'Space Grotesk', sans-serif;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        #reveal-btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-            transition: left 0.5s;
-        }
-
-        #reveal-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4);
-        }
-
-        #reveal-btn:hover::before {
-            left: 100%;
-        }
-
-        /* Responsive Design */
-        @media (max-width: 1200px) {
-            .drawing-area {
-                grid-template-columns: 1fr;
-                gap: 30px;
-            }
-            
-            .header-container {
-                padding: 0 20px;
-            }
-            
-            .main-container {
-                padding: 30px 20px;
-            }
-        }
-
-        @media (max-width: 768px) {
-            .header-container {
-                flex-direction: column;
-                gap: 15px;
-                text-align: center;
-            }
-            
-            .title {
-                font-size: 1.5rem;
-            }
-            
-            #timer {
-                font-size: 1.5rem;
-                padding: 10px 20px;
-            }
-            
-            .canvas-section, .reference-section, .controls {
-                padding: 20px;
-            }
-            
-            .color-palette {
-                grid-template-columns: repeat(3, 1fr);
-                gap: 10px;
-            }
-            
-            .color-btns {
-                width: 45px;
-                height: 45px;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .main-container {
-                padding: 20px 15px;
-            }
-            
-            .action-buttons {
-                flex-direction: column;
-            }
-            
-            .color-palette {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-    </style>
 </head>
 <body>
-    <header class="header">
-        <div class="header-container">
-            <h1 class="title">Invisible Art Challenge</h1>
-            <div id="timer">05:00</div>
-            <button id="restart-btn">← Restart</button>
-        </div>
-    </header>
-
-    <div class="main-container">
-        <div class="drawing-area">
-            <div class="canvas-section">
-                <h2 class="section-title">Your Canvas</h2>
-                <canvas id="drawing-canvas" width="400" height="400"></canvas>
-            </div>
-
-            <div class="reference-section">
-                <h2 class="section-title">Reference Image</h2>
-                <img id="reference-img" src="" alt="Reference image to draw" />
-                <div class="hidden-message">
-                    <div class="hidden-icon">👁️‍🗨️</div>
-                    <p><strong>Image Hidden</strong></p>
-                    <p>Draw without seeing the reference!</p>
-                    <p>Click "Reveal Drawing" when you're done.</p>
+    <div class="game-container">
+        <!-- Header Section -->
+        <header class="game-header">
+            <h1>Invisible Art Challenge</h1>
+            <div class="game-info">
+                <div class="timer-container">
+                    <span class="timer-label">Time Left:</span>
+                    <div id="timer">05:00</div>
+                </div>
+                <div class="score-container">
+                    <span class="score-label">Score:</span>
+                    <div id="score">0</div>
                 </div>
             </div>
-        </div>
+        </header>
 
-        <div class="controls">
-            <div class="control-group">
-                <label class="control-label">Color Palette</label>
+        <!-- Main Game Area -->
+        <main class="game-main">
+            <!-- Reference and Canvas Section -->
+            <div class="art-workspace">
+                <div class="reference-section">
+                    <h3>Reference Image</h3>
+                    <div class="image-container">
+                        <img id="prompt-image" src="" alt="Drawing prompt" />
+                    </div>
+                </div>
+
+                <div class="drawing-section">
+                    <h3>Your Canvas</h3>
+                    <div class="canvas-container">
+                        <canvas id="drawing-canvas"></canvas>
+                        
+                    </div>
+                </div>
+            </div>
+
+            <!-- Drawing Tools -->
+            <div class="tools-section">
                 <div class="color-palette">
-                    <button class="color-btns active" style="background-color: #000000;" data-color="#000000"></button>
-                    <button class="color-btns" style="background-color: #ef4444;" data-color="#ef4444"></button>
-                    <button class="color-btns" style="background-color: #f97316;" data-color="#f97316"></button>
-                    <button class="color-btns" style="background-color: #eab308;" data-color="#eab308"></button>
-                    <button class="color-btns" style="background-color: #22c55e;" data-color="#22c55e"></button>
-                    <button class="color-btns" style="background-color: #06b6d4;" data-color="#06b6d4"></button>
-                    <button class="color-btns" style="background-color: #3b82f6;" data-color="#3b82f6"></button>
-                    <button class="color-btns" style="background-color: #8b5cf6;" data-color="#8b5cf6"></button>
-                    <button class="color-btns" style="background-color: #ec4899;" data-color="#ec4899"></button>
-                    <button class="color-btns" style="background-color: #ffffff;" data-color="#ffffff"></button>
+                    <h4>Colors</h4>
+                    <div class="colors">
+                        <div class="color-option active" data-color="#000000" style="background-color: #000000;"></div>
+                        <div class="color-option" data-color="#FF0000" style="background-color: #FF0000;"></div>
+                        <div class="color-option" data-color="#00FF00" style="background-color: #00FF00;"></div>
+                        <div class="color-option" data-color="#0000FF" style="background-color: #0000FF;"></div>
+                        <div class="color-option" data-color="#FFFF00" style="background-color: #FFFF00;"></div>
+                        <div class="color-option" data-color="#FF00FF" style="background-color: #FF00FF;"></div>
+                        <div class="color-option" data-color="#00FFFF" style="background-color: #00FFFF;"></div>
+                        <div class="color-option" data-color="#FFA500" style="background-color: #FFA500;"></div>
+                        <div class="color-option" data-color="#800080" style="background-color: #800080;"></div>
+                        <div class="color-option" data-color="#FFC0CB" style="background-color: #FFC0CB;"></div>
+                        <div class="color-option" data-color="#A52A2A" style="background-color: #A52A2A;"></div>
+                        <div class="color-option" data-color="#808080" style="background-color: #808080;"></div>
+                    </div>
+                </div>
+
+                <div class="brush-tools">
+                    <h4>Brush Size</h4>
+                    <div class="brush-sizes">
+                        <button class="brush-size active" data-size="2">Small</button>
+                        <button class="brush-size" data-size="5">Medium</button>
+                        <button class="brush-size" data-size="10">Large</button>
+                    </div>
+                </div>
+
+                <div class="tool-actions">
+                    <button id="clear-canvas" class="tool-btn">Clear Canvas</button>
+                    <button id="eraser-tool" class="tool-btn">Eraser</button>
                 </div>
             </div>
+        </main>
 
-            <div class="control-group custom-color-section">
-                <label class="control-label">Custom Color</label>
-                <input type="color" id="custom-color-picker" value="#667eea">
-            </div>
+        <!-- Game Controls -->
+        <div class="game-controls">
+            <button id="reveal-btn" class="primary-btn">Reveal & Check Match</button>
+            <button id="restart-btn" class="secondary-btn">Restart Game</button>
+        </div>
 
-            <div class="control-group stroke-control">
-                <label class="control-label" for="stroke-size">Brush Size</label>
-                <input type="range" id="stroke-size" min="1" max="20" value="5">
-                <div class="stroke-preview">Size: <span id="stroke-value">5</span>px</div>
-            </div>
-
-            <div class="action-buttons">
-                <button id="reveal-btn">🎨 Reveal Drawing</button>
+        <!-- Match Result (Hidden by default) -->
+        <div id="match-result" class="match-result hidden">
+            <div class="result-content">
+                <h2>AI Analysis Complete!</h2>
+                <div class="match-percentage">
+                    <span id="match-score">0</span>% Match
+                </div>
+                <div class="match-message">
+                    <p id="match-feedback">Analyzing your artwork...</p>
+                </div>
+                <div class="points-earned">
+                    <span class="points-label">Points Earned:</span>
+                    <span id="points-earned">0</span>
+                </div>
             </div>
         </div>
     </div>
 
+    <!-- Audio Elements -->
+    <audio id="bg-music" loop>
+        <source src="assets/audio/bg-music.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="ding-sound">
+        <source src="assets/audio/ding.mp3" type="audio/mpeg">
+    </audio>
+
     <script src="script.js"></script>
-    <script>
-        // Basic setup for demonstration (this would be in your script.js)
-        document.addEventListener('DOMContentLoaded', function() {
-            // Timer functionality
-            let timeLeft = 300; // 5 minutes in seconds
-            const timerElement = document.getElementById('timer');
-            
-            function updateTimer() {
-                const minutes = Math.floor(timeLeft / 60);
-                const seconds = timeLeft % 60;
-                timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                
-                if (timeLeft > 0) {
-                    timeLeft--;
-                } else {
-                    // Time's up - could trigger reveal automatically
-                    clearInterval(timerInterval);
-                }
-            }
-            
-            const timerInterval = setInterval(updateTimer, 1000);
-            
-            // Stroke size display update
-            const strokeSize = document.getElementById('stroke-size');
-            const strokeValue = document.getElementById('stroke-value');
-            
-            strokeSize.addEventListener('input', function() {
-                strokeValue.textContent = this.value;
-            });
-            
-            // Color palette selection
-            document.querySelectorAll('.color-btns').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    document.querySelectorAll('.color-btns').forEach(b => b.classList.remove('active'));
-                    this.classList.add('active');
-                });
-            });
-            
-            // Restart button
-            document.getElementById('restart-btn').addEventListener('click', function() {
-                window.location.href = 'index.html';
-            });
-            
-            // Reveal button
-            document.getElementById('reveal-btn').addEventListener('click', function() {
-                const referenceImg = document.getElementById('reference-img');
-                const hiddenMessage = document.querySelector('.hidden-message');
-                
-                referenceImg.style.display = 'block';
-                hiddenMessage.style.display = 'none';
-                this.textContent = '✨ Drawing Revealed!';
-                this.disabled = true;
-                this.style.opacity = '0.7';
-            });
-        });
-    </script>
 </body>
 </html>
