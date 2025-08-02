@@ -72,10 +72,7 @@ An imaginary schematic. This does nothing.
 
 Build Photos
 
-The sacred laptop. You can see tears on the keyboard.
-
-
-Our project plan drawn with a dying marker. We ignored it anyway.
+all screenshots added to a file : https://drive.google.com/drive/folders/1SpcHdJpmL1UoahGeIpcqE2a8fR_Q_JrT
 
 Project Demo
 Video:
