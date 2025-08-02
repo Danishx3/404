@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invisible Art Challenge - Results</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="result-page">
+    <div class="game-container">
+        <header class="game-header">
+            <h1>Invisible Art Challenge</h1>
+            <!-- The result page header does not need a timer or score -->
+        </header>
+
+        <main class="result-main">
+            <div class="drawing-section">
+                <h3>Your Masterpiece</h3>
+                <div class="canvas-container">
+                    <img id="drawn-image" src="" alt="Your finished drawing" />
+                </div>
+            </div>
+            
+            <!-- Match Result -->
+            <div id="match-result" class="match-result">
+                <div class="result-content">
+                    <h2>AI Analysis Complete!</h2>
+                    <div class="match-message">
+                        <p id="match-feedback">Analyzing your artwork...</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <div class="game-controls">
+            <button id="restart-btn" class="secondary-btn">Restart Game</button>
+        </div>
+    </div>
+    
+    <!-- This script will retrieve and display the feedback and image from local storage -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const feedbackElement = document.getElementById('match-feedback');
+            const drawnImageElement = document.getElementById('drawn-image');
+            const storedFeedback = localStorage.getItem('aiFeedback');
+            const storedImage = localStorage.getItem('drawnImage');
+
+            if (storedFeedback) {
+                feedbackElement.textContent = storedFeedback;
+            } else {
+                feedbackElement.textContent = "AI analysis failed. Please try again.";
+            }
+
+            if (storedImage) {
+                drawnImageElement.src = storedImage;
+            } else {
+                drawnImageElement.alt = "Drawn image not found.";
+            }
+
+            document.getElementById('restart-btn').addEventListener('click', function() {
+                localStorage.removeItem('aiFeedback');
+                localStorage.removeItem('drawnImage');
+                window.location.href = 'index.html';
+            });
+        });
+    </script>
+</body>
+</html>
