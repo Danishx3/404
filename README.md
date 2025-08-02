@@ -43,13 +43,12 @@ Installation
 bash
 Copy
 Edit
-git clone https://github.com/DilshanCheerangan/invisible-art-challenge.git
+git clone https://github.com/Danishx3/404.git
 cd invisible-art-challenge
 Run
 Just open index.html in your browser. Seriously, that’s it.
 
-Project Documentation
-Software Screenshots
+
 
 Landing page where you pick a difficulty and pretend to know what’s going on.
 
