@@ -74,8 +74,8 @@ Build Photos
 all screenshots added to a file : https://drive.google.com/drive/folders/1SpcHdJpmL1UoahGeIpcqE2a8fR_Q_JrT
 
 Project Demo
-Video:
-Watch the Demo on YouTube
+Video: https://drive.google.com/file/d/1DsPJIDTDVXshHaHD8E8mReSNYfjpMfVz
+Watch the Demo on Drive
 Demonstrates gameplay, emotional trauma, and unexpected laughter.
 
 Additional Demos:
