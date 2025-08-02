@@ -1,7 +1,11 @@
 Blindraw 🎨🕵️‍♂️
+
 Basic Details
+
 Team Name: 444
+
 Team Members
+
 Team Lead: Muhammed Dilshan – SOE<CUSAT
 
 Member 2: Muhammed Danish – SOE<CUSAT
