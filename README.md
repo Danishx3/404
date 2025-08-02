@@ -40,14 +40,7 @@ Two souls and one braincell (shared).
 Implementation
 Installation
 
-bash
-Copy
-Edit
-git clone https://github.com/Danishx3/404.git
-cd invisible-art-challenge
-Run
-Just open index.html in your browser. Seriously, that’s it.
-
+https://danishx3.github.io/404/
 
 
 Landing page where you pick a difficulty and pretend to know what’s going on.
